@@ -17,8 +17,6 @@ No sign-up, no server, no cost. Everything is saved on your own device and never
 
 Open `index.html` in any browser. That's it — start adding jobs.
 
-To put it online so others can use it, upload `index.html` and `app.js` to a GitHub repo, then turn on GitHub Pages (Settings → Pages → deploy from the main branch). You'll get a link you can share. Everyone who opens it gets their own private copy.
-
 ## Note
 
 Your data is stored in your browser, so clearing your browser data will remove it. Use the Export buttons in Settings to keep a backup.
