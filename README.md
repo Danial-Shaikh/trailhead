@@ -21,6 +21,3 @@ Open `index.html` in any browser. That's it — start adding jobs.
 
 Your data is stored in your browser, so clearing your browser data will remove it. Use the Export buttons in Settings to keep a backup.
 
-## License
-
-MIT
