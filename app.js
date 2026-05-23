@@ -645,15 +645,62 @@ function openTemplateModal(t){
 }
 
 function uploadTemplate(){
-  const inp=el('input',{type:'file',accept:'.txt,.md,.text',style:'display:none'});
+  const inp=el('input',{type:'file',accept:'.txt,.md,.text,.docx,.pdf',style:'display:none'});
   inp.onchange=async()=>{
     const file=inp.files[0]; if(!file) return;
-    const text=await file.text();
-    const t={id:uid(),name:file.name.replace(/\.[^.]+$/,''),body:text,created:Date.now()};
-    await DB.put('templates',t); State.templates.push(t); State.activeTemplate=t.id;
-    renderLetters(); toast('Template uploaded');
+    const ext=(file.name.split('.').pop()||'').toLowerCase();
+    try{
+      let text='';
+      if(ext==='docx'){
+        if(!window.mammoth) throw new Error('Word reader still loading — try again in a moment');
+        toast('Reading Word file…');
+        const buf=await file.arrayBuffer();
+        const res=await window.mammoth.extractRawText({arrayBuffer:buf});
+        text=(res.value||'').trim();
+      } else if(ext==='pdf'){
+        if(!window.pdfjsLib) throw new Error('PDF reader still loading — try again in a moment');
+        toast('Reading PDF…');
+        text=await extractPdfText(file);
+      } else if(ext==='doc'){
+        throw new Error('Old .doc isn’t supported — save as .docx, or copy-paste the text');
+      } else {
+        text=await file.text();
+      }
+      if(!text.trim()){ toast('Couldn’t find any text in that file — try copy-pasting instead','err'); return; }
+      const t={id:uid(),name:file.name.replace(/\.[^.]+$/,''),body:text,created:Date.now()};
+      await DB.put('templates',t); State.templates.push(t); State.activeTemplate=t.id; State._clFields={};
+      renderLetters(); toast('Template uploaded — check the formatting & add {{placeholders}}');
+    }catch(e){
+      toast(e.message||'Could not read that file','err');
+    }
   };
   inp.click();
+}
+
+async function extractPdfText(file){
+  // Configure the worker once
+  if(!window.pdfjsLib.GlobalWorkerOptions.workerSrc){
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  const buf=await file.arrayBuffer();
+  const pdf=await window.pdfjsLib.getDocument({data:buf}).promise;
+  let out=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    const content=await page.getTextContent();
+    // Join items, inserting line breaks when the vertical position drops
+    let lastY=null, line=[];
+    const lines=[];
+    content.items.forEach(it=>{
+      const y=it.transform[5];
+      if(lastY!==null && Math.abs(y-lastY)>3){ lines.push(line.join('')); line=[]; }
+      line.push(it.str);
+      lastY=y;
+    });
+    if(line.length) lines.push(line.join(''));
+    out.push(lines.join('\n'));
+  }
+  return out.join('\n\n').trim();
 }
 
 /* ============================================================
